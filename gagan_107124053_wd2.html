@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Cyberscape</title>
+</head>
+
+<body>
+    <h1 style="text-align: centre;">Cyberscape</h1>
+    <p id="key_collected">Keys Collected : 0</p>
+    <button id="pauseBtn" position="absolute" top="20px" left="20px">Pause</button>
+    <button id="resumeBtn" position="absolute" top="20px" left="40px">Resume</button>
+    <button id="resetBtn" position="absolute" top="20px" left="60px">Reset</button>
+    <p id="player_health">Player Health: 100</p>
+    <p id="system_health">System Health: 100</p>
+    <p id="shards_delivered">Shards Delivered: 0</p>
+    <p id="high_score">High Score: 0</p>
+
+    <canvas></canvas>
+
+    <style>
+        p {
+            color: white;
+            font-size: 16px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+        }
+
+        canvas {
+            display: block;
+            background-color: black;
+        }
+    </style>
+
+    <script>
+        const canvas = document.querySelector('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        // 1536
+        canvas.height = window.innerHeight;
+        // 695
+
+        const tile_side = 150;
+        const road_width = 25;
+        const open_width = 25;
+
+        const sq2 = tile_side - (2 * road_width);
+        const sq3 = tile_side - (4 * road_width);
+
+        const r = 10;
+        // player - circle - radius
+
+        const cols = Math.floor((canvas.width) / tile_side);
+        const rows = Math.floor((canvas.height) / tile_side);
+
+        const centre_x = (canvas.width) / 2;
+        const centre_y = (canvas.height) / 2;
+
+        let building = [];
+
+
+        let current_state = {
+            x: centre_x,
+            y: centre_y,
+            key_collected: 0
+        };
+
+        let key_coord = [];
+        let key_collected = 0;
+        const key_r = 5;
+        const key_total = 40;
+        let sectorAngle = 0;
+
+
+        function draw_player(x, y) {
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = "blue";
+            ctx.fill();
+        }
+
+
+
+        function place_key(n) {
+
+            for (let i = 0; i <= n; i++) {
+                let random_row = Math.floor(Math.random() * rows);
+                let random_col = Math.floor(Math.random() * cols);
+
+                let y_coord = random_row * tile_side + (1.5 * road_width) + (sq2 / 2);
+                let x_coord = random_col * tile_side + (1.5 * road_width);
+
+                key_coord.push({ x: x_coord, y: y_coord, collected: false });
+            }
+        }
+
+
+
+        function draw_key() {
+            for (let i = 0; i < key_total; i++) {
+                if (!key_coord[i].collected) {
+                    ctx.beginPath();
+                    ctx.arc(key_coord[i].x, key_coord[i].y, key_r, 0, Math.PI * 2);
+                    ctx.fillStyle = "gold";
+                    ctx.fill();
+                }
+
+            }
+        }
+
+        function checkKeyCollection() {
+            for (let key of key_coord) {
+                if (!key.collected) {
+
+                    let dx = current_state.x - key.x;
+                    let dy = current_state.y - key.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < r + key_r) {
+                        key.collected = true;
+                        key_collected++;
+                        console.log("Key collected:", key_collected);
+                    }
+                }
+            }
+        }
+
+        function drawRotatingSector(cx, cy, angle) {
+            const radius = tile_side / 2;
+            const startAngle = angle;
+            const endAngle = angle + Math.PI / 4;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, radius, startAngle, endAngle);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+            ctx.fill();
+        }
+
+        function draw_map() {
+            building = [];
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    let pos_x = i * tile_side;
+                    let pos_y = j * tile_side;
+                    let pos_x1 = pos_x + road_width;
+                    let pos_y1 = pos_y + road_width;
+                    let pos_x2 = pos_x1 + road_width;
+                    let pos_y2 = pos_y1 + road_width;
+
+
+                    building.push({ x: pos_x2, y: pos_y2, side: sq3 });
+
+
+                    ctx.beginPath();
+                    if ((i === 4 && j === 2) || (i === 9 && j === 2)) {
+                        ctx.strokeStyle = "cyan";
+                        ctx.fillStyle = "cyan";
+                        ctx.strokeRect(pos_x, pos_y, tile_side, tile_side);
+                        ctx.fillRect(pos_x1, pos_y1, sq2, sq2);
+                        ctx.fillStyle = "black";
+                        ctx.fillRect(pos_x2, pos_y2, sq3, sq3);
+                    }
+                    else {
+                        ctx.fillStyle = "black";
+                        ctx.strokeStyle = "green";
+
+                        ctx.strokeRect(pos_x, pos_y, tile_side, tile_side);
+                        ctx.fillStyle = "green";
+                        ctx.fillRect(pos_x1, pos_y1, sq2, sq2);
+                        ctx.fillStyle = "black";
+                        ctx.fillRect(pos_x2, pos_y2, sq3, sq3);
+                    }
+                    drawRotatingSector(pos_x + (2 * road_width) + (sq3 / 2), pos_y + (2 * road_width) + (sq3 / 2), sectorAngle);
+                    // ctx.font="20px Arial"
+                    // ctx.fillText(`Keys Collected: ${key_collected}`, 10, 10);
+
+                    ctx.stroke();
+                }
+            }
+
+
+        }
+
+        function isInsideBuilding(x, y) {
+            for (let b of building) {
+                if (x > b.x && x < b.x + sq3 && y > b.y && y < b.y + sq3) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function isgoingOutside(x, y) {
+            if ((x < 0) || (x > (cols * tile_side)) || (y < 0) || (y > (rows * tile_side))) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        document.addEventListener('keydown', function (e) {
+            // e.preventDefault();
+
+            let new_x = current_state.x;
+            let new_y = current_state.y;
+
+            if (e.key == 'ArrowRight') {
+                new_x += 10;
+            }
+            if (e.key == 'ArrowLeft') {
+                new_x -= 10;
+            }
+            if (e.key == 'ArrowUp') {
+                new_y -= 10;
+            }
+            if (e.key == 'ArrowDown') {
+                new_y += 10;
+            }
+            if ((!isInsideBuilding(new_x, new_y)) && (!isgoingOutside(new_x, new_y))) {
+                current_state.x = new_x;
+                current_state.y = new_y;
+            }
+
+            checkKeyCollection();
+            document.getElementById('key_collected').innerText = `Keys Collected: ${key_collected}`;
+        })
+
+
+        let isPaused = false;
+
+        document.getElementById('pauseBtn').onclick = () => { isPaused = true; };
+        document.getElementById('resumeBtn').onclick = () => { isPaused = false; animate(); };
+        document.getElementById('resetBtn').onclick = () => {
+            current_state.x = centre_x;
+            current_state.y = centre_y;
+            key_collected = 0;
+            key_coord = [];
+            place_key(key_total);
+            document.getElementById('key_collected').innerText = `Keys Collected: 0`;
+
+        };
+
+
+        function animate() {
+            if (!isPaused) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                draw_map();
+                draw_key();
+                draw_player(current_state.x, current_state.y);
+                sectorAngle += 0.02;
+                requestAnimationFrame(animate);
+
+            }
+        }
+        place_key(key_total);
+        animate();
+
+
+
+
+    </script>
+
+</body>
+
+</html>
