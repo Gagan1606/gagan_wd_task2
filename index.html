@@ -7,13 +7,14 @@
 </head>
 
 <body>
-    <h1 style="text-align: centre;">Cyberscape</h1>
+    <h1 style="text-align: center; color: white;">Cyberscape</h1>
     <p id="key_collected">Keys Collected : 0</p>
     <button id="pauseBtn" position="absolute" top="20px" left="20px">Pause</button>
     <button id="resumeBtn" position="absolute" top="20px" left="40px">Resume</button>
     <button id="resetBtn" position="absolute" top="20px" left="60px">Reset</button>
     <p id="player_health">Player Health: 100</p>
     <p id="system_health">System Health: 100</p>
+    <p id="shards_collected">Shards Collected: 0</p>
     <p id="shards_delivered">Shards Delivered: 0</p>
     <p id="high_score">High Score: 0</p>
 
@@ -63,18 +64,37 @@
 
         let building = [];
 
-
         let current_state = {
             x: centre_x,
             y: centre_y,
-            key_collected: 0
+            key_collected: 0,
+            player_health: 100,
+            system_health: 100,
+            // shards_collected: [{ one_key_shard: false }, { two_key_shard: false },
+            // { three_key_shard: false }, { four_key_shard: false }, { five_key_shard: false }]
+            shards_collected: [0, 0, 0, 0, 0]
         };
 
+        // let num_shards_collected = Object.values(shards_collected).filter(x => x === true).length;
+        let num_shards_collected = current_state.shards_collected.filter(x => x === 1).length;
+
+        let req_key = [1, 2, 3, 4, 5];
+
+        let shards_delivered = [0, 0, 0, 0, 0];
+
         let key_coord = [];
-        let key_collected = 0;
         const key_r = 5;
-        const key_total = 40;
+        const key_total = 15;
         let sectorAngle = 0;
+
+        let bullets = [];
+        const bullet_speed = 5;
+
+        let radarHits = 0;
+        const maxRadarHits = 10;
+        let radarActive = true;
+
+
 
 
         function draw_player(x, y) {
@@ -84,25 +104,26 @@
             ctx.fill();
         }
 
-
-
         function place_key(n) {
 
-            for (let i = 0; i <= n; i++) {
+            while (key_coord.length < n) {
                 let random_row = Math.floor(Math.random() * rows);
                 let random_col = Math.floor(Math.random() * cols);
 
                 let y_coord = random_row * tile_side + (1.5 * road_width) + (sq2 / 2);
                 let x_coord = random_col * tile_side + (1.5 * road_width);
 
+                if (key_coord.some(k => k.x === x_coord && k.y === y_coord) || isInsideBuilding(x_coord, y_coord)) {
+                    continue;
+                }
+
                 key_coord.push({ x: x_coord, y: y_coord, collected: false });
             }
         }
 
 
-
         function draw_key() {
-            for (let i = 0; i < key_total; i++) {
+            for (let i = 0; i < key_coord.length; i++) {
                 if (!key_coord[i].collected) {
                     ctx.beginPath();
                     ctx.arc(key_coord[i].x, key_coord[i].y, key_r, 0, Math.PI * 2);
@@ -119,18 +140,23 @@
 
                     let dx = current_state.x - key.x;
                     let dy = current_state.y - key.y;
-                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    let distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < r + key_r) {
+                    if (distance < r + key_r) {
                         key.collected = true;
-                        key_collected++;
-                        console.log("Key collected:", key_collected);
+                        current_state.key_collected++;
+                        console.log("Key collected:", current_state.key_collected);
                     }
                 }
             }
         }
 
-        function drawRotatingSector(cx, cy, angle) {
+        function distance(x1, y1, x2, y2) {
+            return Math.sqrt(Math.pow((x1 - x2), 2) + Math.pow((y1 - y2), 2));
+        }
+
+        function drawRotatingSector(cx, cy, angle, radarActive) {
+            if (!radarActive) return;
             const radius = tile_side / 2;
             const startAngle = angle;
             const endAngle = angle + Math.PI / 4;
@@ -143,8 +169,10 @@
             ctx.fill();
         }
 
+
         function draw_map() {
             building = [];
+
             for (let i = 0; i < cols; i++) {
                 for (let j = 0; j < rows; j++) {
                     let pos_x = i * tile_side;
@@ -154,9 +182,16 @@
                     let pos_x2 = pos_x1 + road_width;
                     let pos_y2 = pos_y1 + road_width;
 
-
-                    building.push({ x: pos_x2, y: pos_y2, side: sq3 });
-
+                    const radarId = i + '-' + j;
+                    let radarObj = {
+                        id: radarId,
+                        x: pos_x2,
+                        y: pos_y2,
+                        side: sq3,
+                        radarHits: 0,
+                        radarActive: true
+                    };
+                    building.push(radarObj);
 
                     ctx.beginPath();
                     if ((i === 4 && j === 2) || (i === 9 && j === 2)) {
@@ -166,27 +201,28 @@
                         ctx.fillRect(pos_x1, pos_y1, sq2, sq2);
                         ctx.fillStyle = "black";
                         ctx.fillRect(pos_x2, pos_y2, sq3, sq3);
-                    }
-                    else {
+                    } else {
                         ctx.fillStyle = "black";
                         ctx.strokeStyle = "green";
-
                         ctx.strokeRect(pos_x, pos_y, tile_side, tile_side);
                         ctx.fillStyle = "green";
                         ctx.fillRect(pos_x1, pos_y1, sq2, sq2);
                         ctx.fillStyle = "black";
                         ctx.fillRect(pos_x2, pos_y2, sq3, sq3);
                     }
-                    drawRotatingSector(pos_x + (2 * road_width) + (sq3 / 2), pos_y + (2 * road_width) + (sq3 / 2), sectorAngle);
-                    // ctx.font="20px Arial"
-                    // ctx.fillText(`Keys Collected: ${key_collected}`, 10, 10);
+
+                    drawRotatingSector(
+                        pos_x + (2 * road_width) + (sq3 / 2),
+                        pos_y + (2 * road_width) + (sq3 / 2),
+                        sectorAngle,
+                        radarObj.radarActive
+                    );
 
                     ctx.stroke();
                 }
             }
-
-
         }
+
 
         function isInsideBuilding(x, y) {
             for (let b of building) {
@@ -203,6 +239,259 @@
             }
             else {
                 return false;
+            }
+        }
+
+        //collectkeys-shards-deliver-health inc
+        //let shards = 5, each - 1key - 1st shard, 2 keys - 2nd, .... - 15 keys
+        //n key shard - n units health +
+        // 
+
+        function findCurrentTileCentre() {
+            let temp_min = Infinity;
+            let temp_min_idx = null;
+            for (b in building) {
+                let temp_centre_x = building[b].x - (sq3 / 2);
+                let temp_centre_y = building[b].y - (sq3 / 2);
+                if (distance(temp_centre_x, temp_centre_y, current_state.x, current_state.y) < temp_min) {
+                    temp_min = distance(temp_centre_x, temp_centre_y, current_state.x, current_state.y);
+                    temp_min_idx = b;
+                }
+            }
+            return [building[temp_min_idx].x - (sq3 / 2), building[temp_min_idx].y - (sq3 / 2)];
+        }
+
+        function playerIsinsideSector() {
+
+            let current_angle = (Math.atan2(current_state.y - findCurrentTileCentre()[1], current_state.x - findCurrentTileCentre()[0]));
+
+            let current_angle_modified = ((current_angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+
+            const sectorStart = ((sectorAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            const sectorEnd = ((sectorStart + Math.PI / 4) % (2 * Math.PI));
+
+            let inSector = false;
+            if (sectorStart < sectorEnd) {
+                inSector = current_angle_modified >= sectorStart && current_angle_modified <= sectorEnd;
+            } else {
+                inSector = current_angle_modified >= sectorStart || current_angle_modified <= sectorEnd;
+            }
+
+            return distance(current_state.x, current_state.y, findCurrentTileCentre()[0], findCurrentTileCentre()[1]) < tile_side / 2 && inSector;
+
+            // return (distance(current_state.x, current_state.y, findCurrentTileCentre()[0], findCurrentTileCentre()[1]) < (tile_side / 2)) &&
+            //     (sectorAngle < current_angle_modified &&
+            //         current_angle_modified < (Math.PI / 4));
+
+            // if (sectorStart < sectorEnd) {
+            //     return current_angle_modified >= sectorStart && current_angle_modified <= sectorEnd;
+            // } else {
+
+            //     return current_angle_modified >= sectorStart || current_angle_modified <= sectorEnd;
+            // }
+        }
+
+        //shards logic
+
+        function isInsideCentralHub() {
+            return ((current_state.x > 4 * tile_side && current_state.x < 5 * tile_side)
+                && (current_state.y > 2 * tile_side && current_state.y < 3 * tile_side))
+        }
+
+        function isInsideBaseStation() {
+            return ((current_state.x > 9 * tile_side && current_state.x < 10 * tile_side)
+                && (current_state.y > 2 * tile_side && current_state.y < 3 * tile_side))
+        }
+
+        function giveKeyTakeShard() {
+            if (isInsideCentralHub()) {
+                alert('Is inside Central Hub');
+                for (let i = req_key.length - 1; i >= 0; i--) {
+                    while (current_state.key_collected >= req_key[i] && current_state.shards_collected[i] === 0) {
+                        current_state.key_collected -= req_key[i];
+                        current_state.shards_collected[i] = 1;
+                    }
+                }
+                let num_shards_collected = current_state.shards_collected.filter(x => x === 1).length;
+                document.getElementById('key_collected').innerText = `Keys Collected: ${current_state.key_collected}`;
+                document.getElementById('shards_collected').innerHTML = `Shards Collected: ${num_shards_collected}`;
+            }
+        }
+
+        function takeShardIncHealth() {
+            if (isInsideBaseStation()) {
+                alert('Is inside Base Station');
+                for (let i in current_state.shards_collected) {
+                    let j = Number(i);
+                    if (current_state.shards_collected[j] == 1) {
+                        current_state.shards_collected[j] = 0;
+                        current_state.system_health += j + 1;
+                        shards_delivered[j] = 1;
+                        num_shards_collected -= 1;
+                    }
+                }
+                num_shards_collected = current_state.shards_collected.filter(x => x === 1).length;
+                document.getElementById('shards_collected').innerHTML = `Shards Collected: ${num_shards_collected}`;
+                document.getElementById('shards_delivered').innerHTML = `Shards Delivered: ${shards_delivered.filter(x => x == 1).length}`;
+            }
+        }
+
+
+
+        // function system_health() {
+        //     setInterval(() => {
+        //         if (!isPaused) current_state.system_health -= 1;
+        //     }, 1000);
+
+        //     setInterval(() => {
+        //         if (playerIsinsideSector()) current_state.player_health -= 10 / 60;
+        //     }, 60);
+        // }
+
+        function system_health() {
+            setInterval(() => {
+
+                if (!isPaused) {
+                    current_state.system_health -= 1;
+                    if (current_state.system_health <= 0) {
+                        current_state.system_health = 0;
+                    }
+                }
+            }, 1000);
+
+
+            setInterval(() => {
+                for (let b of building) {
+                    if (b.radarActive) {
+                        const cx = b.x + sq3 / 2;
+                        const cy = b.y + sq3 / 2;
+
+                        const angleToPlayer = Math.atan2(current_state.y - cy, current_state.x - cx);
+                        const angleNorm = (angleToPlayer + 2 * Math.PI) % (2 * Math.PI);
+                        const start = (sectorAngle + 2 * Math.PI) % (2 * Math.PI);
+                        const end = (start + Math.PI / 4) % (2 * Math.PI);
+
+                        const inSector = start < end
+                            ? (angleNorm >= start && angleNorm <= end)
+                            : (angleNorm >= start || angleNorm <= end);
+
+                        if (inSector && distance(current_state.x, current_state.y, cx, cy) < tile_side / 2) {
+                            current_state.player_health -= 10 / 60;
+                        }
+                    }
+                }
+            }, 60);
+        }
+
+        function endGame() {
+            if (shards_delivered.filter(x => x == 1).length == 5) {
+                isPaused = true;
+                alert('Winner! :)');
+                current_state.x = centre_x;
+                current_state.y = centre_y;
+                current_state.key_collected = 0;
+                key_coord = [];
+                current_state.player_health = 100;
+                current_state.system_health = 100;
+                num_shards_collected = 0;
+                shards_collected = [0, 0, 0, 0, 0];
+                place_key(key_total);
+                document.getElementById('key_collected').innerText = `Keys Collected: 0`;
+                document.getElementById('player_health').textContent = `Player Health: 100`;
+                document.getElementById('system_health').textContent = `System Health: 100`;
+                document.getElementById('shards_collected').innerHTML = `Shards Collected: ${num_shards_collected}`;
+
+            }
+        }
+
+        // function shooting() {
+        //     bullets = bullets.filter(b => !b.hit); // remove dead bullets first
+
+        //     for (let bullet of bullets) {
+        //         bullet.x += bullet_speed;
+
+        //         if (bullet.x < 0 || bullet.x > canvas.width) {
+        //             bullet.hit = true;
+        //             continue;
+        //         }
+
+        //         if (isInsideBuilding(bullet.x, bullet.y)) {
+        //             bullet.hit = true;
+        //             continue;
+        //         }
+
+        //         for (let b of building) {
+        //             if (!b.radarActive) continue;
+
+        //             const cx = b.x + sq3 / 2;
+        //             const cy = b.y + sq3 / 2;
+        //             const radius = tile_side / 2;
+
+        //             if (distance(bullet.x, bullet.y, cx, cy) < radius) {
+        //                 bullet.hit = true;
+        //                 b.radarHits += 1;
+
+        //                 if (b.radarHits >= maxRadarHits) {
+        //                     b.radarActive = false;
+        //                 }
+        //                 break;
+        //             }
+        //         }
+        //     }
+
+        //     for (let bullet of bullets) {
+        //         ctx.beginPath();
+        //         ctx.arc(bullet.x, bullet.y, 3, 0, 2 * Math.PI);
+        //         ctx.fillStyle = "white";
+        //         ctx.fill();
+        //     }
+        // }
+
+
+        function shooting() {
+            bullets = bullets.filter(bullet =>
+                bullet.x >= 0 && bullet.x <= canvas.width &&
+                bullet.y >= 0 && bullet.y <= canvas.height &&
+                !bullet.hit
+            );
+
+            for (let bullet of bullets) {
+                bullet.framesAlive = (bullet.framesAlive || 0) + 1;
+                bullet.x += bullet.right ? bullet_speed : -bullet_speed;
+
+                if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+                    bullet.hit = true;
+                    continue;
+                }
+
+                // Only remove bullet for building collision after the first frame
+                if (bullet.framesAlive > 1 && isInsideBuilding(bullet.x, bullet.y)) {
+                    bullet.hit = true;
+                    continue;
+                }
+
+                // Radar hit check
+                for (let b of building) {
+                    if (!b.radarActive) continue;
+                    const cx = b.x + sq3 / 2;
+                    const cy = b.y + sq3 / 2;
+                    const radius = tile_side / 2;
+                    if (distance(bullet.x, bullet.y, cx, cy) < radius) {
+                        bullet.hit = true;
+                        b.radarHits += 1;
+                        if (b.radarHits >= maxRadarHits) {
+                            b.radarActive = false;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            for (let bullet of bullets) {
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, 3, 0, 2 * Math.PI);
+                ctx.fillStyle = "white";
+                ctx.fill();
             }
         }
 
@@ -228,9 +517,18 @@
                 current_state.x = new_x;
                 current_state.y = new_y;
             }
+            if ((isInsideCentralHub()) && (e.key === ' ')) {
+                giveKeyTakeShard();
+            }
+            if ((isInsideBaseStation()) && (e.key === ' ')) {
+                takeShardIncHealth();
+            }
+            if (e.key == 'Enter') {
+                bullets.push({ x: current_state.x, y: current_state.y, right: true, hit: false });
+            }
 
             checkKeyCollection();
-            document.getElementById('key_collected').innerText = `Keys Collected: ${key_collected}`;
+            document.getElementById('key_collected').innerText = `Keys Collected: ${current_state.key_collected}`;
         })
 
 
@@ -241,11 +539,17 @@
         document.getElementById('resetBtn').onclick = () => {
             current_state.x = centre_x;
             current_state.y = centre_y;
-            key_collected = 0;
+            current_state.key_collected = 0;
             key_coord = [];
+            current_state.player_health = 100;
+            current_state.system_health = 100;
+            num_shards_collected = 0;
+            shards_collected = [0, 0, 0, 0, 0];
             place_key(key_total);
             document.getElementById('key_collected').innerText = `Keys Collected: 0`;
-
+            document.getElementById('player_health').textContent = `Player Health: 100`;
+            document.getElementById('system_health').textContent = `System Health: 100`;
+            document.getElementById('shards_collected').innerHTML = `Shards Collected: ${num_shards_collected}`;
         };
 
 
@@ -253,15 +557,30 @@
             if (!isPaused) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 draw_map();
+                sectorAngle += 0.02;
+                shooting();
                 draw_key();
                 draw_player(current_state.x, current_state.y);
-                sectorAngle += 0.02;
-                requestAnimationFrame(animate);
+                let display_player_health = Math.floor(current_state.player_health);
+                endGame();
+                if (current_state.system_health <= 0 || current_state.player_health <= 0) {
+                    isPaused = true;
+                    alert('Game Over!');
+                    return;
+                }
+                current_state.system_health = Math.max(0, current_state.system_health);
+                current_state.player_health = Math.max(0, current_state.player_health);
 
+                document.getElementById('player_health').textContent = `Player Health: ${display_player_health}`;
+                document.getElementById('system_health').textContent = `System Health: ${current_state.system_health}`;
+
+                requestAnimationFrame(animate);
             }
+
         }
         place_key(key_total);
         animate();
+        system_health();
 
 
 
