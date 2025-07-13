@@ -94,7 +94,10 @@
         const maxRadarHits = 10;
         let radarActive = true;
 
-
+        if (!localStorage.getItem('highScore')) {
+            localStorage.setItem('highScore', 0);
+        }
+        document.getElementById('high_score').textContent = `High Score: ${localStorage.getItem('highScore')}`;
 
 
         function draw_player(x, y) {
@@ -305,7 +308,7 @@
 
         function giveKeyTakeShard() {
             if (isInsideCentralHub()) {
-                alert('Is inside Central Hub');
+                alert('You are inside Central Hub!');
                 for (let i = req_key.length - 1; i >= 0; i--) {
                     while (current_state.key_collected >= req_key[i] && current_state.shards_collected[i] === 0) {
                         current_state.key_collected -= req_key[i];
@@ -320,7 +323,7 @@
 
         function takeShardIncHealth() {
             if (isInsideBaseStation()) {
-                alert('Is inside Base Station');
+                alert('You are inside Base Station!');
                 for (let i in current_state.shards_collected) {
                     let j = Number(i);
                     if (current_state.shards_collected[j] == 1) {
@@ -359,7 +362,6 @@
                 }
             }, 1000);
 
-
             setInterval(() => {
                 for (let b of building) {
                     if (b.radarActive) {
@@ -384,98 +386,53 @@
         }
 
         function endGame() {
-            if (shards_delivered.filter(x => x == 1).length == 5) {
-                isPaused = true;
-                alert('Winner! :)');
-                current_state.x = centre_x;
-                current_state.y = centre_y;
-                current_state.key_collected = 0;
-                key_coord = [];
-                current_state.player_health = 100;
-                current_state.system_health = 100;
-                num_shards_collected = 0;
-                shards_collected = [0, 0, 0, 0, 0];
-                place_key(key_total);
-                document.getElementById('key_collected').innerText = `Keys Collected: 0`;
-                document.getElementById('player_health').textContent = `Player Health: 100`;
-                document.getElementById('system_health').textContent = `System Health: 100`;
-                document.getElementById('shards_collected').innerHTML = `Shards Collected: ${num_shards_collected}`;
-
-            }
+            current_state.x = centre_x;
+            current_state.y = centre_y;
+            current_state.key_collected = 0;
+            key_coord = [];
+            current_state.player_health = 100;
+            current_state.system_health = 100;
+            num_shards_collected = 0;
+            current_state.shards_collected = [0, 0, 0, 0, 0];
+            place_key(key_total);
+            document.getElementById('key_collected').innerText = `Keys Collected: 0`;
+            document.getElementById('player_health').textContent = `Player Health: 100`;
+            document.getElementById('system_health').textContent = `System Health: 100`;
+            document.getElementById('shards_collected').innerHTML = `Shards Collected: ${num_shards_collected}`;
+            document.getElementById('shards_delivered').innerHTML = `Shards Delivered: 0`;
+            document.getElementById('high_score').textContent = `High Score: ${localStorage.getItem('highScore')}`;
         }
-
-        // function shooting() {
-        //     bullets = bullets.filter(b => !b.hit); // remove dead bullets first
-
-        //     for (let bullet of bullets) {
-        //         bullet.x += bullet_speed;
-
-        //         if (bullet.x < 0 || bullet.x > canvas.width) {
-        //             bullet.hit = true;
-        //             continue;
-        //         }
-
-        //         if (isInsideBuilding(bullet.x, bullet.y)) {
-        //             bullet.hit = true;
-        //             continue;
-        //         }
-
-        //         for (let b of building) {
-        //             if (!b.radarActive) continue;
-
-        //             const cx = b.x + sq3 / 2;
-        //             const cy = b.y + sq3 / 2;
-        //             const radius = tile_side / 2;
-
-        //             if (distance(bullet.x, bullet.y, cx, cy) < radius) {
-        //                 bullet.hit = true;
-        //                 b.radarHits += 1;
-
-        //                 if (b.radarHits >= maxRadarHits) {
-        //                     b.radarActive = false;
-        //                 }
-        //                 break;
-        //             }
-        //         }
-        //     }
-
-        //     for (let bullet of bullets) {
-        //         ctx.beginPath();
-        //         ctx.arc(bullet.x, bullet.y, 3, 0, 2 * Math.PI);
-        //         ctx.fillStyle = "white";
-        //         ctx.fill();
-        //     }
-        // }
-
 
         function shooting() {
             bullets = bullets.filter(bullet =>
-                bullet.x >= 0 && bullet.x <= canvas.width &&
+                bullet.x >= 0 && bullet.x <= (canvas.width - 10) &&
                 bullet.y >= 0 && bullet.y <= canvas.height &&
                 !bullet.hit
             );
 
             for (let bullet of bullets) {
-                bullet.framesAlive = (bullet.framesAlive || 0) + 1;
-                bullet.x += bullet.right ? bullet_speed : -bullet_speed;
+                // bullet.framesAlive = (bullet.framesAlive || 0) + 1;
+                // bullet.x += bullet.right ? bullet_speed : -bullet_speed;
+                bullet.x += bullet_speed;
+
 
                 if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
                     bullet.hit = true;
                     continue;
                 }
 
-                // Only remove bullet for building collision after the first frame
-                if (bullet.framesAlive > 1 && isInsideBuilding(bullet.x, bullet.y)) {
-                    bullet.hit = true;
-                    continue;
-                }
 
-                // Radar hit check
+                // if (bullet.framesAlive > 1 && isInsideBuilding(bullet.x, bullet.y)) {
+                //     bullet.hit = true;
+                //     continue;
+                // }
+
+
                 for (let b of building) {
                     if (!b.radarActive) continue;
                     const cx = b.x + sq3 / 2;
                     const cy = b.y + sq3 / 2;
-                    const radius = tile_side / 2;
+                    const radius = tile_side / 4;
                     if (distance(bullet.x, bullet.y, cx, cy) < radius) {
                         bullet.hit = true;
                         b.radarHits += 1;
@@ -495,8 +452,22 @@
             }
         }
 
+
+        // function myShootingfn(){
+        //     document.addEventListener('keydown', (e)=>{
+        //         if(e.key === 'Enter'){
+        //             ctx = document.querySelector('canvas');
+        //             ctx.beginPath();
+        //             ctx.arc(current_state.x, current_state.y, 5, 0, Math.PI*2);
+        //             bullets.push([current_state.x, current_state.y]);
+        //             ctx.fillStyle='blue';
+        //             ctx.fill();
+        //         }
+        //     })
+        // }
+
         document.addEventListener('keydown', function (e) {
-            // e.preventDefault();
+            e.preventDefault();
 
             let new_x = current_state.x;
             let new_y = current_state.y;
@@ -537,19 +508,7 @@
         document.getElementById('pauseBtn').onclick = () => { isPaused = true; };
         document.getElementById('resumeBtn').onclick = () => { isPaused = false; animate(); };
         document.getElementById('resetBtn').onclick = () => {
-            current_state.x = centre_x;
-            current_state.y = centre_y;
-            current_state.key_collected = 0;
-            key_coord = [];
-            current_state.player_health = 100;
-            current_state.system_health = 100;
-            num_shards_collected = 0;
-            shards_collected = [0, 0, 0, 0, 0];
-            place_key(key_total);
-            document.getElementById('key_collected').innerText = `Keys Collected: 0`;
-            document.getElementById('player_health').textContent = `Player Health: 100`;
-            document.getElementById('system_health').textContent = `System Health: 100`;
-            document.getElementById('shards_collected').innerHTML = `Shards Collected: ${num_shards_collected}`;
+            endGame();
         };
 
 
@@ -562,11 +521,19 @@
                 draw_key();
                 draw_player(current_state.x, current_state.y);
                 let display_player_health = Math.floor(current_state.player_health);
-                endGame();
                 if (current_state.system_health <= 0 || current_state.player_health <= 0) {
                     isPaused = true;
-                    alert('Game Over!');
-                    return;
+                    alert(`Game Over!, Score : ${current_state.system_health}`);
+                    endGame();
+                }
+                if (shards_delivered.filter(x => x == 1).length == 5) {
+                    isPaused = true;
+                    if (current_state.system_health > localStorage.getItem('highScore')) {
+                        localStorage.setItem('highScore', current_state.system_health);
+
+                    }
+                    alert(`Won!, Score : ${current_state.system_health}`);
+                    endGame();
                 }
                 current_state.system_health = Math.max(0, current_state.system_health);
                 current_state.player_health = Math.max(0, current_state.player_health);
